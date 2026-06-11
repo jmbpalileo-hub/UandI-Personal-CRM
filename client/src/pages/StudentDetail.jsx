@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
   ChevronLeft, Hash, Mail, Phone, MapPin, Calendar, GraduationCap,
-  MessageSquare, CreditCard, FolderOpen, Edit2
+  MessageSquare, CreditCard, FolderOpen, Edit2, Receipt
 } from 'lucide-react'
 import { useStudent } from '../hooks/useStudents'
 import { useUpdates } from '../hooks/useUpdates'
@@ -120,9 +120,19 @@ export default function StudentDetail() {
               </div>
             </div>
           </div>
-          <button className="btn-secondary flex items-center gap-2" onClick={() => setShowEditForm(true)}>
-            <Edit2 size={14} />Edit
-          </button>
+          <div className="flex items-center gap-2">
+            <a
+              href={`https://u-i-payment-sheet-app.vercel.app/?fileNo=${encodeURIComponent(student.file_no)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Receipt size={14} />Payment Sheet
+            </a>
+            <button className="btn-secondary flex items-center gap-2" onClick={() => setShowEditForm(true)}>
+              <Edit2 size={14} />Edit
+            </button>
+          </div>
         </div>
       </div>
 
