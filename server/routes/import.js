@@ -2,8 +2,9 @@ const express = require('express')
 const router = express.Router()
 const { getAuthedClient } = require('../lib/auth')
 const { findStudentsFolder, listSubfolders } = require('../lib/drive')
-const { parseFolderName, nextFileNo } = require('../lib/importParser')
+const { parseFolderName } = require('../lib/importParser')
 const { getRows, appendRow, updateRow } = require('../lib/sheets')
+const { claimNextFileNos, buildNameLookup, populateRow } = require('../lib/referenceSheet')
 
 function inferStatus(categoryName) {
   const n = (categoryName || '').toLowerCase()
@@ -14,47 +15,35 @@ function inferStatus(categoryName) {
   return 'Active'
 }
 
-// Normalise a name for loose matching (lowercase, strip extra spaces)
 function normaliseName(first, family) {
   return `${(first || '').trim()} ${(family || '').trim()}`.toLowerCase().replace(/\s+/g, ' ').trim()
 }
 
 // GET /api/import/scan
-// Scans the "Students" Drive folder 2 levels deep, parses all student
-// subfolders, matches against existing Sheet records by name, and
-// assigns the next available file number to unmatched students.
 router.get('/scan', async (req, res) => {
   try {
     const auth = getAuthedClient()
     if (!auth) return res.status(401).json({ error: 'Not authenticated' })
 
+    // Find Students Drive folder
     const folders = await findStudentsFolder(auth)
     if (!folders.length) {
       return res.json({ found: false, message: 'No folder named "Students" found in your Drive.' })
     }
-
     const studentFolder = folders[0]
     const topLevel = await listSubfolders(auth, studentFolder.id)
     if (!topLevel.length) {
-      return res.json({
-        found: true, folderId: studentFolder.id,
-        folderName: studentFolder.name, folderUrl: studentFolder.webViewLink,
-        students: [], message: 'The "Students" folder contains no subfolders.',
-      })
+      return res.json({ found: true, folderId: studentFolder.id, folderName: studentFolder.name, students: [], message: 'Students folder has no subfolders.' })
     }
 
-    // Separate: direct student folders vs category folders
+    // Separate category folders vs direct student folders
     const directStudents = []
     const categoryFolders = []
     for (const f of topLevel) {
       const parsed = parseFolderName(f.name)
-      // Treat as a category if name has no comma AND no file number AND looks like a label
       const looksLikeCategory = !parsed.file_no && !f.name.includes(',')
-      if (looksLikeCategory) {
-        categoryFolders.push(f)
-      } else {
-        directStudents.push({ folder: f, parsed, category: null })
-      }
+      if (looksLikeCategory) categoryFolders.push(f)
+      else directStudents.push({ folder: f, parsed, category: null })
     }
 
     // Scan one level deeper inside category folders
@@ -62,67 +51,100 @@ router.get('/scan', async (req, res) => {
     for (const cat of categoryFolders) {
       const children = await listSubfolders(auth, cat.id)
       for (const f of children) {
-        const parsed = parseFolderName(f.name)
-        deepStudents.push({ folder: f, parsed, category: cat.name })
+        deepStudents.push({ folder: f, parsed: parseFolderName(f.name), category: cat.name })
       }
     }
 
     const allFound = [...directStudents, ...deepStudents]
 
-    // Load existing sheet records for matching
-    const existingRows = await getRows(auth, 'Students')
+    // Load CRM sheet + reference register
+    const [existingRows, regNameLookup] = await Promise.all([
+      getRows(auth, 'Students'),
+      buildNameLookup(auth),
+    ])
     const existingFileNos = new Set(existingRows.map(r => r.file_no).filter(Boolean))
 
-    // Build name → file_no lookup from existing records
-    const nameToFileNo = {}
-    const nameToDriveLinked = {}
+    // Build CRM name → record lookup
+    const crmNameLookup = {}
     for (const r of existingRows) {
       const key = normaliseName(r.first_name, r.family_name)
-      if (key) {
-        nameToFileNo[key] = r.file_no
-        nameToDriveLinked[key] = !!r.drive_folder_id
-      }
+      if (key) crmNameLookup[key] = r
+      // Also index family-first order
+      const key2 = normaliseName(r.family_name, r.first_name)
+      if (key2) crmNameLookup[key2] = r
     }
 
-    // Current year suffix for auto file number generation (e.g. "25")
-    const yearSuffix = String(new Date().getFullYear()).slice(-2)
-    const assignedFileNos = new Set(existingFileNos)
+    // Claim enough file numbers from register for new students
+    const newCount = allFound.filter(({ folder, parsed, category }) => {
+      const nameKey = normaliseName(parsed.first_name, parsed.family_name)
+      const revKey = normaliseName(parsed.family_name, parsed.first_name)
+      return !crmNameLookup[nameKey] && !crmNameLookup[revKey] && !regNameLookup[nameKey] && !regNameLookup[revKey]
+    }).length
+    const availableNos = await claimNextFileNos(auth, newCount, existingFileNos)
+    let fileNoIdx = 0
 
     const students = allFound.map(({ folder, parsed, category }) => {
       const nameKey = normaliseName(parsed.first_name, parsed.family_name)
+      const revKey = normaliseName(parsed.family_name, parsed.first_name) // family first (Drive format)
 
-      // Check if already in sheet by file number or name
-      let matched_file_no = parsed.file_no || nameToFileNo[nameKey] || null
-      const already_exists = matched_file_no
-        ? existingFileNos.has(matched_file_no)
-        : !!(nameToFileNo[nameKey])
-      const drive_already_linked = nameKey ? nameToDriveLinked[nameKey] : false
-
-      // Auto-assign a file number for truly new students
-      let auto_file_no = null
-      if (!matched_file_no && !already_exists) {
-        auto_file_no = nextFileNo(assignedFileNos, yearSuffix)
-        assignedFileNos.add(auto_file_no)
+      // 1. Check CRM by name
+      const crmRecord = crmNameLookup[nameKey] || crmNameLookup[revKey]
+      if (crmRecord) {
+        return {
+          drive_folder_id: folder.id,
+          folder_name: folder.name,
+          folder_url: folder.webViewLink,
+          first_name: parsed.first_name,
+          family_name: parsed.family_name,
+          file_no: crmRecord.file_no,
+          category,
+          suggested_status: crmRecord.status || inferStatus(category),
+          already_exists: true,
+          drive_already_linked: !!crmRecord.drive_folder_id,
+          source: 'crm',
+        }
       }
 
+      // 2. Check register by name (already assigned in register)
+      const regFileNo = regNameLookup[nameKey] || regNameLookup[revKey]
+      if (regFileNo) {
+        return {
+          drive_folder_id: folder.id,
+          folder_name: folder.name,
+          folder_url: folder.webViewLink,
+          first_name: parsed.first_name,
+          family_name: parsed.family_name,
+          file_no: regFileNo,
+          category,
+          suggested_status: inferStatus(category),
+          already_exists: existingFileNos.has(regFileNo),
+          drive_already_linked: false,
+          source: 'register',
+        }
+      }
+
+      // 3. Assign next available from register
+      const assignedNo = availableNos[fileNoIdx++] || null
       return {
         drive_folder_id: folder.id,
         folder_name: folder.name,
         folder_url: folder.webViewLink,
         first_name: parsed.first_name,
         family_name: parsed.family_name,
-        file_no: matched_file_no || auto_file_no,
-        auto_assigned: !matched_file_no && !already_exists,
+        file_no: assignedNo,
+        auto_assigned: true,
         category,
         suggested_status: inferStatus(category),
-        already_exists,
-        drive_already_linked,
+        already_exists: false,
+        drive_already_linked: false,
+        source: 'new',
       }
     })
 
-    // Sort: new first, then alphabetically
+    // Sort: new first, then alphabetically by family name
     students.sort((a, b) => {
-      if (a.already_exists !== b.already_exists) return a.already_exists ? 1 : -1
+      if (!a.already_exists && b.already_exists) return -1
+      if (a.already_exists && !b.already_exists) return 1
       return (a.family_name || '').localeCompare(b.family_name || '')
     })
 
@@ -140,9 +162,6 @@ router.get('/scan', async (req, res) => {
 })
 
 // POST /api/import/confirm
-// For each student:
-//  - New student → appendRow with auto/parsed file_no and drive_folder_id
-//  - Existing student, Drive not linked yet → updateRow to set drive_folder_id
 router.post('/confirm', async (req, res) => {
   try {
     const auth = getAuthedClient()
@@ -157,39 +176,39 @@ router.post('/confirm', async (req, res) => {
     const existingFileNos = new Set(existingRows.map(r => r.file_no).filter(Boolean))
 
     const now = new Date().toISOString().split('T')[0]
-    let imported = 0
-    let linked = 0
-    let skipped = 0
+    let imported = 0, linked = 0, skipped = 0
     const errors = []
 
     for (const s of students) {
       try {
         if (s.already_exists && s.file_no) {
-          // Just update the drive_folder_id if not already set
           if (!s.drive_already_linked) {
-            await updateRow(auth, 'Students', 'file_no', s.file_no, {
-              drive_folder_id: s.drive_folder_id,
-            })
+            await updateRow(auth, 'Students', 'file_no', s.file_no, { drive_folder_id: s.drive_folder_id })
             linked++
           } else {
             skipped++
           }
-        } else if (!existingFileNos.has(s.file_no)) {
-          await appendRow(auth, 'Students', {
-            file_no: s.file_no,
-            vto_no: '',
-            family_name: s.family_name || '',
-            first_name: s.first_name || '',
+        } else if (s.file_no && !existingFileNos.has(s.file_no)) {
+          const row = {
+            file_no: s.file_no, vto_no: '',
+            family_name: s.family_name || '', first_name: s.first_name || '',
             dob: '', gender: '', address: '', email: '', tel_mob: '',
-            visa_type: '', visa_end_date: '',
-            previous_school: '', new_school: '',
-            consultant: '',
-            drive_folder_id: s.drive_folder_id || '',
-            gmail_query: '',
-            created_at: now,
-            status: s.suggested_status || 'Active',
-          })
+            visa_type: '', visa_end_date: '', previous_school: '', new_school: '',
+            consultant: '', drive_folder_id: s.drive_folder_id || '',
+            gmail_query: '', created_at: now, status: s.suggested_status || 'Active',
+          }
+          await appendRow(auth, 'Students', row)
           existingFileNos.add(s.file_no)
+
+          // Populate the register row for this file number
+          await populateRow(auth, s.file_no, {
+            family_name: s.family_name,
+            first_name: s.first_name,
+            new_school: '',
+            created_at: now,
+            consultant: '',
+          }).catch(() => {}) // non-fatal if register row not found
+
           imported++
         } else {
           skipped++

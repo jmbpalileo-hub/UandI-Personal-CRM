@@ -131,7 +131,8 @@ export default function DriveImportModal({ onClose, onImported }) {
                 <p className="text-red-500 text-xs">{result.errors.length} record(s) had errors.</p>
               )}
               <p className="text-text-muted text-sm">
-                New students have been added with auto-assigned file numbers and Drive folders linked.<br />
+                New students have been added with file numbers from the register and Drive folders linked.<br />
+                The file number register spreadsheet has also been updated.<br />
                 Open each student to fill in remaining details.
               </p>
             </div>
@@ -248,7 +249,7 @@ export default function DriveImportModal({ onClose, onImported }) {
                   {scanResult.students.some(s => !s.file_no) && (
                     <p className="text-text-muted text-xs mt-2 flex items-center gap-1">
                       <AlertTriangle size={11} strokeWidth={2} className="text-yellow-500" />
-                      Folders without a file number (e.g. U25-001) in their name will be skipped.
+                      Some students couldn't be assigned a file number — the register may be full or unreadable. They will be skipped.
                     </p>
                   )}
                 </>
