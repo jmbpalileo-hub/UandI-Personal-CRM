@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    font-family: 'Inter', sans-serif;
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: #F7FAFA;
+    color: #1A2E2B;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Nunito', sans-serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand-primary text-white font-semibold text-sm px-5 py-2.5 rounded-lg transition-all duration-100 hover:bg-brand-dark active:scale-[0.97];
+    font-family: 'Inter', sans-serif;
+  }
+
+  .btn-secondary {
+    @apply bg-white border border-brand-primary text-brand-primary font-semibold text-sm px-5 py-2.5 rounded-lg transition-all duration-100 hover:bg-brand-light active:scale-[0.97];
+    font-family: 'Inter', sans-serif;
+  }
+
+  .btn-ghost {
+    @apply text-brand-primary font-medium text-sm px-3 py-1.5 rounded-lg transition-all duration-100 hover:bg-brand-light active:scale-[0.97];
+    font-family: 'Inter', sans-serif;
+  }
+
+  .btn-danger {
+    @apply bg-red-500 text-white font-semibold text-sm px-5 py-2.5 rounded-lg transition-all duration-100 hover:bg-red-600 active:scale-[0.97];
+    font-family: 'Inter', sans-serif;
+  }
+
+  .input-field {
+    @apply w-full border border-border rounded-lg px-3 py-2 text-sm text-text-primary bg-white placeholder-text-muted outline-none transition-all duration-150;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .input-field:focus {
+    border-color: #00B09B;
+    box-shadow: 0 0 0 3px rgba(0, 176, 155, 0.15);
+  }
+
+  .card {
+    @apply bg-white border border-border rounded-card shadow-card;
+  }
+
+  .badge-active {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    background: #E6F7F5;
+    color: #008C7E;
+    border: 1px solid #00B09B;
+  }
+
+  .badge-warning {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    background: #FEF3C7;
+    color: #92400E;
+  }
+
+  .badge-danger {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    background: #FEE2E2;
+    color: #991B1B;
+  }
+
+  .badge-hold {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    background: #F1F5F9;
+    color: #475569;
+  }
+
+  .badge-complete {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    background: #F1F5F9;
+    color: #334155;
+  }
+
+  .table-header {
+    @apply text-xs uppercase tracking-widest font-semibold;
+    color: #4B6B67;
+    background: #F0FBF9;
+    letter-spacing: 0.08em;
+  }
+
+  .label {
+    @apply block text-xs font-medium mb-1;
+    color: #4B6B67;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@keyframes pulse-danger {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.pulse-danger {
+  animation: pulse-danger 1.5s ease-in-out infinite;
+}
+
+@keyframes fadeOut {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.auto-save-indicator {
+  animation: fadeOut 2s ease-out forwards;
+}
