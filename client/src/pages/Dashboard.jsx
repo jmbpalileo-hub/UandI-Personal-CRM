@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react'
-import { Search, SlidersHorizontal, PlusCircle, Users, FolderOpen, LayoutGrid, List } from 'lucide-react'
+import { Search, SlidersHorizontal, PlusCircle, Users, FolderOpen, LayoutGrid, List, CalendarDays } from 'lucide-react'
 import { useStudents } from '../hooks/useStudents'
 import StudentCard from '../components/StudentCard'
 import StudentRow from '../components/StudentRow'
+import CalendarView from '../components/CalendarView'
 import StudentForm from '../components/StudentForm'
 import DriveImportModal from '../components/DriveImportModal'
 import { useToast } from '../components/Toast'
@@ -97,6 +98,14 @@ export default function Dashboard() {
               >
                 <List size={15} strokeWidth={1.5} />
               </button>
+              <button
+                onClick={() => toggleView('calendar')}
+                className="px-2.5 py-2 transition-colors border-l border-border"
+                style={{ background: viewMode === 'calendar' ? '#E6F7F5' : 'white', color: viewMode === 'calendar' ? '#00B09B' : '#8FA8A5' }}
+                title="Calendar view"
+              >
+                <CalendarDays size={15} strokeWidth={1.5} />
+              </button>
             </div>
             <button className="btn-secondary flex items-center gap-2" onClick={() => setShowImport(true)}>
               <FolderOpen size={15} strokeWidth={1.5} />
@@ -122,17 +131,19 @@ export default function Dashboard() {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <div className="relative">
-            <SlidersHorizontal size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-            <select
-              className="input-field pl-9 pr-8 appearance-none"
-              value={sort}
-              onChange={e => setSort(e.target.value)}
-              style={{ minWidth: 180 }}
-            >
-              {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
+          {viewMode !== 'calendar' && (
+            <div className="relative">
+              <SlidersHorizontal size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+              <select
+                className="input-field pl-9 pr-8 appearance-none"
+                value={sort}
+                onChange={e => setSort(e.target.value)}
+                style={{ minWidth: 180 }}
+              >
+                {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Status tabs */}
@@ -195,6 +206,8 @@ export default function Dashboard() {
               </button>
             )}
           </div>
+        ) : viewMode === 'calendar' ? (
+          <CalendarView students={filtered} />
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(s => <StudentCard key={s.file_no} student={s} />)}
