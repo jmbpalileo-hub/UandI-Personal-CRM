@@ -14,7 +14,8 @@ router.get('/callback', async (req, res) => {
     const client = getOAuthClient()
     const { tokens } = await client.getToken(code)
     saveTokens(tokens)
-    res.redirect('/?setup=1')
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+    res.redirect(`${frontendUrl}/?setup=1`)
   } catch (e) {
     res.status(500).send(`OAuth error: ${e.message}`)
   }

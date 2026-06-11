@@ -36,6 +36,11 @@ app.use('/api/setup', require('./routes/setup'))
 
 app.get('/health', (req, res) => res.json({ ok: true }))
 
+// Catch-all: redirect any browser landing on the API server to the frontend
+app.get('/', (req, res) => {
+  res.redirect(process.env.FRONTEND_URL || 'http://localhost:3000')
+})
+
 app.listen(PORT, () => {
   console.log(`U&I CRM server running on http://localhost:${PORT}`)
 })
