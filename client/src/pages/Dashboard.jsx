@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
-import { Search, SlidersHorizontal, PlusCircle, Users, FolderOpen } from 'lucide-react'
+import { Search, SlidersHorizontal, PlusCircle, Users, FolderOpen, LayoutGrid, List } from 'lucide-react'
 import { useStudents } from '../hooks/useStudents'
 import StudentCard from '../components/StudentCard'
+import StudentRow from '../components/StudentRow'
 import StudentForm from '../components/StudentForm'
 import DriveImportModal from '../components/DriveImportModal'
 import { useToast } from '../components/Toast'
@@ -21,7 +22,13 @@ export default function Dashboard() {
   const [sort, setSort] = useState('visa_asc')
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('crm-view') || 'grid')
   const toast = useToast()
+
+  const toggleView = (mode) => {
+    setViewMode(mode)
+    localStorage.setItem('crm-view', mode)
+  }
 
   const filtered = useMemo(() => {
     let list = [...students]
@@ -72,6 +79,25 @@ export default function Dashboard() {
             <p className="text-text-secondary text-sm mt-0.5">{students.length} total students</p>
           </div>
           <div className="flex items-center gap-2">
+            {/* View toggle */}
+            <div className="flex items-center rounded-lg border border-border overflow-hidden">
+              <button
+                onClick={() => toggleView('grid')}
+                className="px-2.5 py-2 transition-colors"
+                style={{ background: viewMode === 'grid' ? '#E6F7F5' : 'white', color: viewMode === 'grid' ? '#00B09B' : '#8FA8A5' }}
+                title="Grid view"
+              >
+                <LayoutGrid size={15} strokeWidth={1.5} />
+              </button>
+              <button
+                onClick={() => toggleView('list')}
+                className="px-2.5 py-2 transition-colors border-l border-border"
+                style={{ background: viewMode === 'list' ? '#E6F7F5' : 'white', color: viewMode === 'list' ? '#00B09B' : '#8FA8A5' }}
+                title="List view"
+              >
+                <List size={15} strokeWidth={1.5} />
+              </button>
+            </div>
             <button className="btn-secondary flex items-center gap-2" onClick={() => setShowImport(true)}>
               <FolderOpen size={15} strokeWidth={1.5} />
               Import from Drive
@@ -133,17 +159,30 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Grid */}
+        {/* Student list / grid */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1,2,3,4,5,6].map(i => (
-              <div key={i} className="card p-5 animate-pulse">
-                <div className="h-4 bg-border rounded w-2/3 mb-3" />
-                <div className="h-3 bg-border rounded w-1/3 mb-2" />
-                <div className="h-3 bg-border rounded w-1/2" />
-              </div>
-            ))}
-          </div>
+          viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1,2,3,4,5,6].map(i => (
+                <div key={i} className="card p-5 animate-pulse">
+                  <div className="h-4 bg-border rounded w-2/3 mb-3" />
+                  <div className="h-3 bg-border rounded w-1/3 mb-2" />
+                  <div className="h-3 bg-border rounded w-1/2" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="card overflow-hidden">
+              {[1,2,3,4,5,6].map(i => (
+                <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-border last:border-0 animate-pulse">
+                  <div className="h-3 bg-border rounded w-20" />
+                  <div className="h-3 bg-border rounded w-32" />
+                  <div className="h-3 bg-border rounded w-40" />
+                  <div className="h-3 bg-border rounded w-16 ml-auto" />
+                </div>
+              ))}
+            </div>
+          )
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Users size={40} className="text-text-muted" strokeWidth={0.8} />
@@ -156,9 +195,21 @@ export default function Dashboard() {
               </button>
             )}
           </div>
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(s => <StudentCard key={s.file_no} student={s} />)}
+          </div>
+        ) : (
+          <div className="card overflow-hidden">
+            {/* List header */}
+            <div className="grid grid-cols-[140px_1fr_1fr_120px_110px] gap-4 px-4 py-2.5 border-b border-border table-header text-xs font-semibold text-text-secondary uppercase tracking-wide">
+              <span>File No.</span>
+              <span>Name</span>
+              <span>School</span>
+              <span>Visa Expiry</span>
+              <span>Status</span>
+            </div>
+            {filtered.map(s => <StudentRow key={s.file_no} student={s} />)}
           </div>
         )}
       </div>
