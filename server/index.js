@@ -33,6 +33,7 @@ app.use('/api/checklist', require('./routes/checklist'))
 app.use('/api/gmail', require('./routes/gmail'))
 app.use('/api/drive', require('./routes/drive'))
 app.use('/api/setup', require('./routes/setup'))
+app.use('/api/import', require('./routes/import'))
 
 app.get('/health', (req, res) => res.json({ ok: true }))
 

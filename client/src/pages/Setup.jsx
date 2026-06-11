@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { CheckCircle, ExternalLink } from 'lucide-react'
+import { CheckCircle, ExternalLink, FolderOpen } from 'lucide-react'
 import { api } from '../lib/api'
+import DriveImportModal from '../components/DriveImportModal'
 
 const STEPS = ['Connect Google', 'Link Spreadsheet', 'Done']
 
@@ -10,6 +11,7 @@ export default function Setup({ onComplete, authenticated = false }) {
   const [creating, setCreating] = useState(false)
   const [linking, setLinking] = useState(false)
   const [error, setError] = useState('')
+  const [showImport, setShowImport] = useState(false)
 
   const handleOAuth = () => {
     window.location.href = '/auth/login'
@@ -150,13 +152,27 @@ export default function Setup({ onComplete, authenticated = false }) {
               <p className="text-text-secondary text-sm text-center">
                 Your CRM is connected and ready to use.
               </p>
-              <button className="btn-primary w-full mt-2" onClick={onComplete}>
+              <button
+                className="btn-secondary w-full flex items-center justify-center gap-2"
+                onClick={() => setShowImport(true)}
+              >
+                <FolderOpen size={15} strokeWidth={1.5} />
+                Import Students from Drive
+              </button>
+              <button className="btn-primary w-full" onClick={onComplete}>
                 Go to Dashboard
               </button>
             </div>
           )}
         </div>
       </div>
+
+      {showImport && (
+        <DriveImportModal
+          onClose={() => setShowImport(false)}
+          onImported={() => setShowImport(false)}
+        />
+      )}
     </div>
   )
 }

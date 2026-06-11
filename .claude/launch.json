@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "uandi-crm-client",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "/Users/josemaripalileo/Documents/Claude/Remotion Test/uandi-crm/client",
+      "port": 3000
+    }
+  ]
+}

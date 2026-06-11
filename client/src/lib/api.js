@@ -53,4 +53,8 @@ export const api = {
   getSetupStatus: () => request('/setup/status'),
   createSpreadsheet: () => request('/setup/create-spreadsheet', { method: 'POST' }),
   linkSpreadsheet: (id) => request('/setup/link-spreadsheet', { method: 'POST', body: { spreadsheetId: id } }),
+
+  // Drive import
+  scanDriveStudents: () => request('/import/scan'),
+  confirmDriveImport: (students) => request('/import/confirm', { method: 'POST', body: { students } }),
 }

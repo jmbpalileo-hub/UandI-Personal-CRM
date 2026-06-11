@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react'
-import { Search, SlidersHorizontal, PlusCircle, Users } from 'lucide-react'
+import { Search, SlidersHorizontal, PlusCircle, Users, FolderOpen } from 'lucide-react'
 import { useStudents } from '../hooks/useStudents'
 import StudentCard from '../components/StudentCard'
 import StudentForm from '../components/StudentForm'
+import DriveImportModal from '../components/DriveImportModal'
 import { useToast } from '../components/Toast'
 import { getVisaStatus } from '../lib/utils'
 
@@ -14,11 +15,12 @@ const SORT_OPTIONS = [
 ]
 
 export default function Dashboard() {
-  const { students, loading, addStudent } = useStudents()
+  const { students, loading, addStudent, refetch: load } = useStudents()
   const [search, setSearch] = useState('')
   const [statusTab, setStatusTab] = useState('All')
   const [sort, setSort] = useState('visa_asc')
   const [showForm, setShowForm] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const toast = useToast()
 
   const filtered = useMemo(() => {
@@ -69,10 +71,16 @@ export default function Dashboard() {
             <h1 style={{ fontFamily: 'Nunito', fontWeight: 700, fontSize: 24, color: '#1A2E2B' }}>Students</h1>
             <p className="text-text-secondary text-sm mt-0.5">{students.length} total students</p>
           </div>
-          <button className="btn-primary flex items-center gap-2" onClick={() => setShowForm(true)}>
-            <PlusCircle size={16} strokeWidth={2} />
-            New Student
-          </button>
+          <div className="flex items-center gap-2">
+            <button className="btn-secondary flex items-center gap-2" onClick={() => setShowImport(true)}>
+              <FolderOpen size={15} strokeWidth={1.5} />
+              Import from Drive
+            </button>
+            <button className="btn-primary flex items-center gap-2" onClick={() => setShowForm(true)}>
+              <PlusCircle size={16} strokeWidth={2} />
+              New Student
+            </button>
+          </div>
         </div>
       </div>
 
@@ -156,6 +164,12 @@ export default function Dashboard() {
       </div>
 
       {showForm && <StudentForm onSave={handleAdd} onClose={() => setShowForm(false)} />}
+      {showImport && (
+        <DriveImportModal
+          onClose={() => setShowImport(false)}
+          onImported={() => { load(); toast('Students imported from Drive') }}
+        />
+      )}
     </div>
   )
 }
