@@ -4,8 +4,8 @@ import { api } from '../lib/api'
 
 const STEPS = ['Connect Google', 'Link Spreadsheet', 'Done']
 
-export default function Setup({ onComplete }) {
-  const [step, setStep] = useState(0)
+export default function Setup({ onComplete, authenticated = false }) {
+  const [step, setStep] = useState(authenticated ? 1 : 0)
   const [sheetId, setSheetId] = useState('')
   const [creating, setCreating] = useState(false)
   const [linking, setLinking] = useState(false)

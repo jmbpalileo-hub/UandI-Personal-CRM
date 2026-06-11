@@ -42,11 +42,13 @@ function SettingsPage() {
 export default function App() {
   const [ready, setReady] = useState(false)
   const [needsSetup, setNeedsSetup] = useState(false)
+  const [authenticated, setAuthenticated] = useState(false)
 
   useEffect(() => {
     api.getSetupStatus()
-      .then(({ configured }) => {
+      .then(({ configured, authenticated }) => {
         setNeedsSetup(!configured)
+        setAuthenticated(!!authenticated)
         setReady(true)
       })
       .catch(() => {
@@ -75,7 +77,7 @@ export default function App() {
     <ToastProvider>
       <BrowserRouter>
         {needsSetup
-          ? <Setup onComplete={() => setNeedsSetup(false)} />
+          ? <Setup authenticated={authenticated} onComplete={() => setNeedsSetup(false)} />
           : <AppShell />
         }
       </BrowserRouter>
