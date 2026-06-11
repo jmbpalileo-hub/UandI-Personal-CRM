@@ -5,6 +5,9 @@ const os = require('os')
 
 const TOKEN_DIR = path.join(os.homedir(), '.uandi-crm')
 const TOKEN_PATH = path.join(TOKEN_DIR, 'tokens.json')
+const TMP_TOKEN_PATH = '/tmp/uandi-tokens.json'
+
+const isVercel = () => !!process.env.VERCEL
 
 function getOAuthClient() {
   return new google.auth.OAuth2(
@@ -27,17 +30,31 @@ function getAuthUrl(client) {
 }
 
 function saveTokens(tokens) {
+  if (isVercel()) {
+    try {
+      const current = readTmpTokens() || {}
+      fs.writeFileSync(TMP_TOKEN_PATH, JSON.stringify({ ...current, ...tokens }))
+    } catch {}
+    return
+  }
   if (!fs.existsSync(TOKEN_DIR)) fs.mkdirSync(TOKEN_DIR, { recursive: true })
   fs.writeFileSync(TOKEN_PATH, JSON.stringify(tokens))
 }
 
+function readTmpTokens() {
+  try { return JSON.parse(fs.readFileSync(TMP_TOKEN_PATH, 'utf8')) } catch { return null }
+}
+
 function loadTokens() {
-  if (!fs.existsSync(TOKEN_PATH)) return null
-  try {
-    return JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8'))
-  } catch {
-    return null
+  if (isVercel()) {
+    const envRefresh = process.env.GOOGLE_REFRESH_TOKEN
+    const tmp = readTmpTokens()
+    if (!envRefresh && !tmp) return null
+    // Merge: env var refresh_token wins (it's the stable one), tmp provides cached access_token
+    return { ...(tmp || {}), ...(envRefresh ? { refresh_token: envRefresh } : {}) }
   }
+  if (!fs.existsSync(TOKEN_PATH)) return null
+  try { return JSON.parse(fs.readFileSync(TOKEN_PATH, 'utf8')) } catch { return null }
 }
 
 function getAuthedClient() {
