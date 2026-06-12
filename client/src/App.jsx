@@ -6,6 +6,7 @@ import StudentDetail from './pages/StudentDetail'
 import Setup from './pages/Setup'
 import { ToastProvider } from './components/Toast'
 import { api } from './lib/api'
+import { Copy, X, AlertTriangle } from 'lucide-react'
 
 function AppShell() {
   return (
@@ -43,13 +44,19 @@ export default function App() {
   const [ready, setReady] = useState(false)
   const [needsSetup, setNeedsSetup] = useState(false)
   const [authenticated, setAuthenticated] = useState(false)
+  const [refreshTokenBanner, setRefreshTokenBanner] = useState(null) // { token, copied }
 
   useEffect(() => {
     api.getSetupStatus()
-      .then(({ configured, authenticated }) => {
+      .then(({ configured, authenticated, needsRefreshTokenSave }) => {
         setNeedsSetup(!configured)
         setAuthenticated(!!authenticated)
         setReady(true)
+        if (needsRefreshTokenSave) {
+          api.getRefreshToken()
+            .then(({ refresh_token }) => setRefreshTokenBanner({ token: refresh_token, copied: false }))
+            .catch(() => {})
+        }
       })
       .catch(() => {
         setNeedsSetup(false)
@@ -78,9 +85,62 @@ export default function App() {
       <BrowserRouter>
         {needsSetup
           ? <Setup authenticated={authenticated} onComplete={() => setNeedsSetup(false)} />
-          : <AppShell />
+          : <>
+              {refreshTokenBanner && (
+                <RefreshTokenBanner
+                  token={refreshTokenBanner.token}
+                  copied={refreshTokenBanner.copied}
+                  onCopy={() => {
+                    navigator.clipboard.writeText(refreshTokenBanner.token).catch(() => {})
+                    setRefreshTokenBanner(b => ({ ...b, copied: true }))
+                  }}
+                  onDismiss={() => setRefreshTokenBanner(null)}
+                />
+              )}
+              <AppShell />
+            </>
         }
       </BrowserRouter>
     </ToastProvider>
+  )
+}
+
+function RefreshTokenBanner({ token, copied, onCopy, onDismiss }) {
+  return (
+    <div
+      className="fixed top-0 left-0 right-0 z-50 px-4 py-3 flex items-start gap-3"
+      style={{ background: '#1A2E2B', color: 'white' }}
+    >
+      <AlertTriangle size={18} className="flex-shrink-0 mt-0.5 text-yellow-400" strokeWidth={1.5} />
+      <div className="flex-1 min-w-0">
+        <p style={{ fontFamily: 'Nunito', fontWeight: 700, fontSize: 13 }}>
+          Save your session permanently — copy this refresh token to Vercel
+        </p>
+        <p className="text-xs mt-0.5" style={{ color: '#8FA8A5' }}>
+          Go to <strong style={{ color: 'white' }}>Vercel → Project → Settings → Environment Variables</strong> and add{' '}
+          <code style={{ background: '#2D4A44', padding: '1px 4px', borderRadius: 3, color: '#7ECFC6' }}>GOOGLE_REFRESH_TOKEN</code>{' '}
+          with the value below, then redeploy. Without this, you'll need to sign in again every few hours.
+        </p>
+        <div className="flex items-center gap-2 mt-2">
+          <code
+            className="text-xs rounded px-2 py-1 flex-1 truncate select-all"
+            style={{ background: '#0D1F1C', color: '#7ECFC6', maxWidth: 480 }}
+          >
+            {token}
+          </code>
+          <button
+            onClick={onCopy}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold transition-colors flex-shrink-0"
+            style={{ background: copied ? '#00B09B' : '#2D4A44', color: copied ? 'white' : '#7ECFC6' }}
+          >
+            <Copy size={12} />
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+      </div>
+      <button onClick={onDismiss} className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity">
+        <X size={16} />
+      </button>
+    </div>
   )
 }

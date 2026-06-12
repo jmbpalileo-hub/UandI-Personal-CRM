@@ -1,15 +1,18 @@
 const BASE = '/api'
 
 async function request(path, options = {}) {
+  const { skipAuthRedirect, ...fetchOptions } = options
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers: { 'Content-Type': 'application/json', ...fetchOptions.headers },
     credentials: 'include',
-    ...options,
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    ...fetchOptions,
+    body: fetchOptions.body ? JSON.stringify(fetchOptions.body) : undefined,
   })
-  if (res.status === 401) {
-    window.location.href = '/auth/login'
-    return
+  if (res.status === 401 && !skipAuthRedirect) {
+    setTimeout(() => { window.location.href = '/auth/login' }, 50)
+    const err = new Error('Session expired')
+    err.status = 401
+    throw err
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }))
@@ -57,4 +60,7 @@ export const api = {
   // Drive import
   scanDriveStudents: () => request('/import/scan'),
   confirmDriveImport: (students) => request('/import/confirm', { method: 'POST', body: { students } }),
+
+  // Auth helpers
+  getRefreshToken: () => request('/auth/token', { skipAuthRedirect: true }),
 }

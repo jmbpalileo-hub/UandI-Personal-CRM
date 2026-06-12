@@ -26,4 +26,14 @@ router.get('/status', (req, res) => {
   res.json({ authenticated: hasTokens() })
 })
 
+// Returns the current refresh token so the user can save it to Vercel env vars.
+// Only shown when GOOGLE_REFRESH_TOKEN is not yet set (meaning auth is ephemeral).
+router.get('/token', (req, res) => {
+  const { loadTokens } = require('../lib/auth')
+  const tokens = loadTokens()
+  if (!tokens?.refresh_token) return res.status(404).json({ error: 'No refresh token available' })
+  const needsSave = !!process.env.VERCEL && !process.env.GOOGLE_REFRESH_TOKEN
+  res.json({ refresh_token: tokens.refresh_token, needsSave })
+})
+
 module.exports = router
